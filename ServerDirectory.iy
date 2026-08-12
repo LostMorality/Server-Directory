@@ -580,6 +580,7 @@ local function EnsureWindow()
         Title = "Sort By",
         Values = {"Fewest Players", "Most Players", "Closest Region"},
         Default = State.SortMode,
+        NoSearch = true,
         Callback = OnSortChanged,
     })
     ControlsSection:AddToggle("SD_HideFull", {
