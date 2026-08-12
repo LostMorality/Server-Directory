@@ -37,6 +37,7 @@ end
 
 local ROVALRA_BASE = "https://apis.rovalra.com"
 local DATACENTERS_URL = ROVALRA_BASE .. "/v1/datacenters/list"
+local GEOLOCATION_URL = "https://ipapi.co/json/"
 
 local BASE_REFRESH_INTERVAL = 20
 local MAX_REFRESH_INTERVAL = 180
@@ -56,10 +57,20 @@ local State = {
     ConsecutiveFailures = 0,
     Datacenters = {},
     AutoOrigin = nil,
+    OriginIsRealLocation = false,
+    PingCoefficient = 1,
+    BaseOverheadMs = 30,
+    CurrentServerRealPing = nil,
     CityRank = {},
     CityPing = {},
     ServerRegion = {},
 }
+
+local DEFAULT_PING_COEFFICIENT = 1
+local DEFAULT_BASE_OVERHEAD_MS = 30
+local MIN_PING_COEFFICIENT = 0.3
+local MAX_PING_COEFFICIENT = 3
+local CALIBRATION_MIN_DISTANCE_KM = 200
 
 local Window = nil
 local Tab = nil
@@ -93,11 +104,8 @@ local function Haversine(lat1, lon1, lat2, lon2)
     return R * c
 end
 
-local FIBER_SPEED_KM_PER_MS = 200
-local BASE_OVERHEAD_MS = 20
-
 local function EstimatePing(distanceKm)
-    return math.floor((distanceKm * 2) / FIBER_SPEED_KM_PER_MS + BASE_OVERHEAD_MS)
+    return math.floor(State.PingCoefficient * math.sqrt(distanceKm) + State.BaseOverheadMs)
 end
 
 local function FetchDatacenters()
@@ -147,6 +155,63 @@ local function FetchCurrentServerCity()
         return nil
     end
     return decoded.servers[1].city
+end
+
+local function FetchPlayerOrigin()
+    local _, body = HttpGet(GEOLOCATION_URL)
+    if not body then
+        return nil
+    end
+    local ok, decoded = pcall(function()
+        return HttpService:JSONDecode(body)
+    end)
+    if not ok or not decoded then
+        return nil
+    end
+    local lat, lon = ExtractLatLon(decoded)
+    if not lat or not lon then
+        return nil
+    end
+    return {Lat = lat, Lon = lon}
+end
+
+local function GetRealCurrentPing()
+    local ok, value = pcall(function()
+        return game:GetService("Stats").Network.ServerStatsItem["Data Ping"]:GetValue()
+    end)
+    if ok and type(value) == "number" and value > 0 then
+        return value
+    end
+    return nil
+end
+
+local function CalibratePingModel()
+    State.PingCoefficient = DEFAULT_PING_COEFFICIENT
+    State.BaseOverheadMs = DEFAULT_BASE_OVERHEAD_MS
+    State.CurrentServerRealPing = nil
+    if not State.AutoOrigin then
+        return
+    end
+    local currentCity = FetchCurrentServerCity()
+    if not currentCity then
+        return
+    end
+    local realPing = GetRealCurrentPing()
+    for _, dc in ipairs(State.Datacenters) do
+        if dc.City == currentCity then
+            if realPing then
+                State.CurrentServerRealPing = math.floor(realPing)
+                local dist = Haversine(State.AutoOrigin.Lat, State.AutoOrigin.Lon, dc.Lat, dc.Lon)
+                if dist > CALIBRATION_MIN_DISTANCE_KM then
+                    local coefficient = (realPing - DEFAULT_BASE_OVERHEAD_MS) / math.sqrt(dist)
+                    if coefficient == coefficient and coefficient > 0 then
+                        State.PingCoefficient = math.clamp(coefficient, MIN_PING_COEFFICIENT, MAX_PING_COEFFICIENT)
+                    end
+                end
+            end
+            break
+        end
+    end
 end
 
 local function RecomputeCityRanks()
@@ -272,7 +337,13 @@ local function BuildDisplayList()
             if include then
                 server.RegionCity = State.ServerRegion[server.Id]
                 server.RegionRank = server.RegionCity and State.CityRank[server.RegionCity]
-                server.RegionPing = server.RegionCity and State.CityPing[server.RegionCity]
+                if server.Id == game.JobId and State.CurrentServerRealPing then
+                    server.RegionPing = State.CurrentServerRealPing
+                    server.PingIsMeasured = true
+                else
+                    server.RegionPing = server.RegionCity and State.CityPing[server.RegionCity]
+                    server.PingIsMeasured = false
+                end
                 table.insert(list, server)
             end
         end
@@ -298,7 +369,11 @@ local function BuildRowText(server)
     local regionLine = "Unknown region"
     if server.RegionCity then
         if server.RegionPing then
-            regionLine = string.format("%s (~%d ms)", server.RegionCity, server.RegionPing)
+            if server.PingIsMeasured then
+                regionLine = string.format("%s (%d ms, current server)", server.RegionCity, server.RegionPing)
+            else
+                regionLine = string.format("%s (~%d ms)", server.RegionCity, server.RegionPing)
+            end
         else
             regionLine = server.RegionCity
         end
@@ -563,16 +638,20 @@ local function EnsureWindow()
     end
 
     State.Datacenters = FetchDatacenters()
-    State.AutoOrigin = nil
-    local originCity = FetchCurrentServerCity()
-    if originCity then
-        for _, dc in ipairs(State.Datacenters) do
-            if dc.City == originCity then
-                State.AutoOrigin = {Lat = dc.Lat, Lon = dc.Lon}
-                break
+    State.AutoOrigin = FetchPlayerOrigin()
+    State.OriginIsRealLocation = State.AutoOrigin ~= nil
+    if not State.AutoOrigin then
+        local originCity = FetchCurrentServerCity()
+        if originCity then
+            for _, dc in ipairs(State.Datacenters) do
+                if dc.City == originCity then
+                    State.AutoOrigin = {Lat = dc.Lat, Lon = dc.Lon}
+                    break
+                end
             end
         end
     end
+    CalibratePingModel()
     RecomputeCityRanks()
 
     Window = Fluent:CreateWindow({
