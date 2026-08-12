@@ -57,7 +57,7 @@ local State = {
     Datacenters = {},
     AutoOrigin = nil,
     CityRank = {},
-    CityDistance = {},
+    CityPing = {},
     ServerRegion = {},
 }
 
@@ -91,6 +91,13 @@ local function Haversine(lat1, lon1, lat2, lon2)
     local a = math.sin(dLat / 2) ^ 2 + math.cos(math.rad(lat1)) * math.cos(math.rad(lat2)) * math.sin(dLon / 2) ^ 2
     local c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
+end
+
+local FIBER_SPEED_KM_PER_MS = 200
+local BASE_OVERHEAD_MS = 20
+
+local function EstimatePing(distanceKm)
+    return math.floor((distanceKm * 2) / FIBER_SPEED_KM_PER_MS + BASE_OVERHEAD_MS)
 end
 
 local function FetchDatacenters()
@@ -145,7 +152,7 @@ end
 local function RecomputeCityRanks()
     local origin = State.AutoOrigin
     State.CityRank = {}
-    State.CityDistance = {}
+    State.CityPing = {}
     if not origin then
         return
     end
@@ -161,7 +168,7 @@ local function RecomputeCityRanks()
     end)
     for index, entry in ipairs(ranked) do
         State.CityRank[entry.City] = index
-        State.CityDistance[entry.City] = math.floor(entry.Distance)
+        State.CityPing[entry.City] = EstimatePing(entry.Distance)
     end
 end
 
@@ -265,7 +272,7 @@ local function BuildDisplayList()
             if include then
                 server.RegionCity = State.ServerRegion[server.Id]
                 server.RegionRank = server.RegionCity and State.CityRank[server.RegionCity]
-                server.RegionDistance = server.RegionCity and State.CityDistance[server.RegionCity]
+                server.RegionPing = server.RegionCity and State.CityPing[server.RegionCity]
                 table.insert(list, server)
             end
         end
@@ -290,8 +297,8 @@ local function BuildRowText(server)
     local title = string.format("%d/%d players", server.Playing, server.MaxPlayers)
     local regionLine = "Unknown region"
     if server.RegionCity then
-        if server.RegionDistance then
-            regionLine = string.format("%s (~%d km)", server.RegionCity, server.RegionDistance)
+        if server.RegionPing then
+            regionLine = string.format("%s (~%d ms)", server.RegionCity, server.RegionPing)
         else
             regionLine = server.RegionCity
         end
