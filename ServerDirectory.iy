@@ -37,7 +37,6 @@ end
 
 local ROVALRA_BASE = "https://apis.rovalra.com"
 local DATACENTERS_URL = ROVALRA_BASE .. "/v1/datacenters/list"
-local GEOLOCATION_URL = ROVALRA_BASE .. "/v1/geolocation"
 
 local BASE_REFRESH_INTERVAL = 20
 local MAX_REFRESH_INTERVAL = 180
@@ -123,22 +122,24 @@ local function FetchDatacenters()
     return list
 end
 
-local function FetchGeolocationOrigin()
-    local _, body = HttpGet(GEOLOCATION_URL)
+local function FetchCurrentServerCity()
+    local url = string.format(
+        "%s/v1/servers/details?place_id=%d&server_ids=%s",
+        ROVALRA_BASE,
+        PlaceId,
+        HttpService:UrlEncode(game.JobId)
+    )
+    local _, body = HttpGet(url)
     if not body then
         return nil
     end
     local ok, decoded = pcall(function()
         return HttpService:JSONDecode(body)
     end)
-    if not ok or type(decoded) ~= "table" then
+    if not ok or not decoded or not decoded.servers or not decoded.servers[1] then
         return nil
     end
-    local lat, lon = ExtractLatLon(decoded.location or decoded)
-    if not lat or not lon then
-        return nil
-    end
-    return {Lat = lat, Lon = lon}
+    return decoded.servers[1].city
 end
 
 local function RecomputeCityRanks()
@@ -555,7 +556,16 @@ local function EnsureWindow()
     end
 
     State.Datacenters = FetchDatacenters()
-    State.AutoOrigin = FetchGeolocationOrigin()
+    State.AutoOrigin = nil
+    local originCity = FetchCurrentServerCity()
+    if originCity then
+        for _, dc in ipairs(State.Datacenters) do
+            if dc.City == originCity then
+                State.AutoOrigin = {Lat = dc.Lat, Lon = dc.Lon}
+                break
+            end
+        end
+    end
     RecomputeCityRanks()
 
     Window = Fluent:CreateWindow({

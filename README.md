@@ -7,7 +7,7 @@ A live, self-contained Roblox server browser built on [Fluent](https://github.co
 ## Features
 
 - **Real player counts** — pulled directly from `games.roblox.com/v1/games/{placeId}/servers/Public`, the same source Roblox's own server list uses.
-- **Distance-based region ranking** — fetches all known Roblox datacenters and their coordinates, auto-geolocates you, and ranks every server by haversine distance to its datacenter. This is a far more honest latency proxy than Roblox's self-reported `ping` value, which is frequently `0` or wildly inaccurate.
+- **Distance-based region ranking** — fetches all known Roblox datacenters and their coordinates, and ranks every server by haversine distance to the datacenter you're currently connected to. This is a far more honest latency proxy than Roblox's self-reported `ping` value, which is frequently `0` or wildly inaccurate.
 - **Sort & filter** — Fewest Players, Most Players, or Closest Region, with a toggle to hide full servers.
 - **One-click Join / Share** — join a server directly, or copy a ready-to-run `TeleportToPlaceInstance` snippet to your clipboard.
 - **Self-healing refresh loop** — exponential backoff on repeated fetch failures, incremental UI updates (no flicker/rebuild), and a watchdog that tears itself down cleanly if the window is closed.
@@ -15,8 +15,8 @@ A live, self-contained Roblox server browser built on [Fluent](https://github.co
 ## How it works
 
 1. On open, the script fetches [`/v1/datacenters/list`](https://apis.rovalra.com/docs#/Datacenters/get_datacenters) from RoValra's API to get every known Roblox datacenter and its latitude/longitude.
-2. It calls [`/v1/geolocation`](https://apis.rovalra.com/docs) (no IP argument needed — it resolves the requesting client automatically) to get your approximate location.
-3. Every datacenter is ranked by [haversine distance](https://en.wikipedia.org/wiki/Haversine_formula) from you, closest first.
+2. It looks up your *current* server's own datacenter via [`/v1/servers/details`](https://apis.rovalra.com/docs) (keyed by `game.JobId`) and uses that as the origin point. (RoValra's `/v1/geolocation` endpoint only resolves known Roblox server IPs, not arbitrary player IPs, so it can't be used to geolocate the player directly — this is the actual working substitute.)
+3. Every datacenter is ranked by [haversine distance](https://en.wikipedia.org/wiki/Haversine_formula) from that origin, closest first.
 4. In the background, it queries [`/v1/servers/region`](https://apis.rovalra.com/docs#/Servers/get_servers_by_region) per city (closest first) to build a server-UUID → region cache. This cache is rate-limited and refreshed periodically, independent of the main player-count loop.
 5. Meanwhile, the main loop polls Roblox's own public server list for live `playing` / `maxPlayers` counts.
 6. The two datasets are merged by matching server UUID, giving you a list that's sorted by *actual* proximity while still showing *real* player counts — something neither API provides on its own.
