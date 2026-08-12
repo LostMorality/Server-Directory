@@ -57,7 +57,6 @@ local State = {
     ConsecutiveFailures = 0,
     Datacenters = {},
     AutoOrigin = nil,
-    PreferredCity = "Auto (My Location)",
     CityRank = {},
     CityDistance = {},
     ServerRegion = {},
@@ -142,20 +141,8 @@ local function FetchGeolocationOrigin()
     return {Lat = lat, Lon = lon}
 end
 
-local function GetOrigin()
-    if State.PreferredCity == "Auto (My Location)" then
-        return State.AutoOrigin
-    end
-    for _, dc in ipairs(State.Datacenters) do
-        if dc.City == State.PreferredCity then
-            return {Lat = dc.Lat, Lon = dc.Lon}
-        end
-    end
-    return nil
-end
-
 local function RecomputeCityRanks()
-    local origin = GetOrigin()
+    local origin = State.AutoOrigin
     State.CityRank = {}
     State.CityDistance = {}
     if not origin then
@@ -504,14 +491,6 @@ local function OnHideFullChanged(value)
     IncrementalUpdate(BuildDisplayList())
 end
 
-local function OnPreferredRegionChanged(value)
-    State.PreferredCity = value
-    RecomputeCityRanks()
-    if Window then
-        IncrementalUpdate(BuildDisplayList())
-    end
-end
-
 local function AddWatermark()
     local container = Instance.new("Frame")
     container.Name = "SD_WatermarkPattern"
@@ -607,21 +586,6 @@ local function EnsureWindow()
         Title = "Hide Full Servers",
         Default = State.HideFull,
         Callback = OnHideFullChanged,
-    })
-    local regionValues = {"Auto (My Location)"}
-    local cityNames = {}
-    for _, dc in ipairs(State.Datacenters) do
-        table.insert(cityNames, dc.City)
-    end
-    table.sort(cityNames)
-    for _, city in ipairs(cityNames) do
-        table.insert(regionValues, city)
-    end
-    ControlsSection:AddDropdown("SD_PreferredRegion", {
-        Title = "Preferred Region",
-        Values = regionValues,
-        Default = State.PreferredCity,
-        Callback = OnPreferredRegionChanged,
     })
     ControlsSection:AddButton({Title = "Refresh Now", Callback = RefreshCycle})
     ListSection = Tab:AddSection("Servers", "solar/global-bold")
