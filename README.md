@@ -24,19 +24,12 @@ A live, self-contained Roblox server browser built on [Fluent](https://github.co
 
 ## Installation
 
-Server Directory is built as a plugin for [Infinite Yield](https://github.com/EdgeIY/infiniteyield). Save `ServerDirectory.iy` alongside your other IY plugins, or load it directly:
+Server Directory is a plugin for [Infinite Yield](https://github.com/EdgeIY/infiniteyield) — it isn't loaded with its own `loadstring`, it's added through IY's own plugin system:
 
-```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/<your-username>/Server-Directory/main/ServerDirectory.iy"))()
-```
-
-Once loaded, run:
-
-```
-;sd
-```
-
-or `;serverdirectory` to open the window.
+1. [Download `ServerDirectory.iy`](ServerDirectory.iy) from this repo.
+2. Move the file into your executor's `workspace` folder (the same folder IY itself reads plugins from).
+3. In-game, with Infinite Yield running, open **Settings → Plugins → Add Plugin**, type `ServerDirectory.iy`, and click **Add**.
+4. Run `;sd` or `;serverdirectory` to open the window.
 
 ## Requirements
 
