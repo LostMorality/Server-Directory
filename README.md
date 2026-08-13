@@ -29,7 +29,7 @@ This is a plugin for Infinite Yield, so there's no loadstring to run. You add it
 1. [Download `ServerDirectory.iy`](ServerDirectory.iy).
 2. Put it in your executor's `workspace` folder.
 3. In-game, open Infinite Yield, go to Settings, then Plugins, then Add Plugin, and type `ServerDirectory.iy`.
-4. Type `;sd` in chat to open it.
+4. Open Infinite Yield's cmd box and type `sd` to open it.
 
 ## What you need
 
