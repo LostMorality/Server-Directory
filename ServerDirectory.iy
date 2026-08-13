@@ -331,7 +331,7 @@ local function BuildDisplayList()
     for _, server in ipairs(State.RawServers) do
         if server.Playing > 0 then
             local include = true
-            if State.HideFull and server.Playing >= server.MaxPlayers then
+            if State.HideFull and server.Playing >= server.MaxPlayers and server.Id ~= game.JobId then
                 include = false
             end
             if include then
@@ -349,6 +349,9 @@ local function BuildDisplayList()
         end
     end
     table.sort(list, function(a, b)
+        if a.Id == game.JobId or b.Id == game.JobId then
+            return a.Id == game.JobId
+        end
         if State.SortMode == "Most Players" then
             return a.Playing > b.Playing
         elseif State.SortMode == "Closest Region" then
@@ -421,7 +424,7 @@ local function CreateRow(server)
     local info = infoColumn:AddParagraph({Title = title, Content = content})
     local joinColumn = group:AddElement()
     local joinButton = joinColumn:AddButton({
-        Title = "Join",
+        Title = server.Id == game.JobId and "Rejoin" or "Join",
         Callback = function()
             JoinServer(server.Id)
         end,
