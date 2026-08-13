@@ -2,6 +2,19 @@
 
 Roblox's server list shows you a "ping" number for each server. It's almost always wrong, usually just 0. This is a server browser that fixes that.
 
+## ⚠️ What this plugin loads and calls out to
+
+**This plugin uses a loadstring.** It loads the [Fluent (modded)](https://github.com/LostMorality/Fluent-modded) UI library, and only that, from:
+
+```
+https://github.com/LostMorality/Fluent-modded/releases/download/Fluent/FluentPro
+```
+
+**This plugin makes HTTP requests to servers other than roblox.com:**
+
+- **`apis.rovalra.com`** ([RoValra](https://github.com/NotValra/RoValra)'s public API) — to get the list of Roblox datacenters and figure out which datacenter each server is running in.
+- **`ipapi.co`** — to get your rough physical location from your IP address, so the plugin can tell which servers are actually close to you. This sends your IP address to that service.
+
 ![Server Directory preview](preview.png)
 
 ## What it does
@@ -24,7 +37,7 @@ Finally, it pulls live player counts from Roblox and lines them up with the regi
 
 ## Installing it
 
-This is a plugin for Infinite Yield, so there's no loadstring to run. You add it the same way you'd add any other IY plugin:
+This is a plugin for Infinite Yield, so you don't run a loadstring yourself to install it (the plugin has its own loadstring inside it, see the warning above). You add it the same way you'd add any other IY plugin:
 
 1. [Download `ServerDirectory.iy`](ServerDirectory.iy).
 2. Put it in your executor's `workspace` folder.
