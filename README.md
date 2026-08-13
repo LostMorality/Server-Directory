@@ -1,48 +1,44 @@
 # Server Directory
 
-A live, self-contained Roblox server browser built on [Fluent](https://github.com/LostMorality/Fluent-modded). Instead of trusting Roblox's own (frequently useless) `ping` field, it ranks servers by real geographic distance from you to each datacenter, powered by [RoValra's](https://github.com/NotValra/RoValra) public API — then merges in live player counts from Roblox itself, and displays an estimated ping calibrated against your actual measured latency.
+Roblox's server list shows you a "ping" number for each server. It's almost always wrong, usually just 0. This is a server browser that fixes that.
 
 ![Server Directory preview](preview.png)
 
-## Features
+## What it does
 
-- **Real player counts** — pulled directly from `games.roblox.com/v1/games/{placeId}/servers/Public`, the same source Roblox's own server list uses.
-- **Distance-based region ranking** — geolocates you (not the server you happen to be on — Roblox doesn't guarantee proximity matchmaking), fetches all known Roblox datacenters and their coordinates, and ranks every server by haversine distance from you. This is a far more honest latency proxy than Roblox's self-reported `ping` value, which is frequently `0` or wildly inaccurate.
-- **Self-calibrating ping estimate** — reads your actual measured ping to your current server (via Roblox's own `Stats` service) and uses it to calibrate the distance→ping model, instead of trusting a blind theoretical constant.
-- **Sort & filter** — Fewest Players, Most Players, or Closest Region, with a toggle to hide full servers.
-- **One-click Join / Share** — join a server directly, or copy a ready-to-run `TeleportToPlaceInstance` snippet to your clipboard.
-- **Self-healing refresh loop** — exponential backoff on repeated fetch failures, incremental UI updates (no flicker/rebuild), and a watchdog that tears itself down cleanly if the window is closed.
+It shows you real player counts, straight from Roblox. It figures out roughly where you are and ranks servers by how close they actually are to you. It also gives you a ping guess for each one, tuned using your real connection instead of a made-up number.
+
+You can sort by fewest players, most players, or closest server, and hide full servers if you want. Hit Join to jump into a server, or Share to copy a script that joins it later. If something fails, it quietly retries instead of breaking, and it cleans itself up if you close the window.
 
 ## How it works
 
-1. On open, the script fetches [`/v1/datacenters/list`](https://apis.rovalra.com/docs#/Datacenters/get_datacenters) from RoValra's API to get every known Roblox datacenter and its latitude/longitude.
-2. It geolocates *you* via [ipapi.co](https://ipapi.co) (RoValra's own `/v1/geolocation` endpoint only resolves known Roblox server IPs, not arbitrary player IPs, so it can't be used for this — this is the working substitute). If that fails, it falls back to using your current server's own datacenter (via RoValra's [`/v1/servers/details`](https://apis.rovalra.com/docs), keyed by `game.JobId`) as a rough proxy.
-3. Every datacenter is ranked by [haversine distance](https://en.wikipedia.org/wiki/Haversine_formula) from that origin, closest first.
-4. To turn distance into an estimated ping, it reads your **actual measured ping** to your current server from Roblox's own `Stats.Network.ServerStatsItem["Data Ping"]` and your distance to that server's datacenter, then solves for a personalized coefficient in `ping = coefficient * sqrt(distance) + baseOverhead` (square-root, not linear — real-world latency scales sub-linearly with distance since long-haul backbone/submarine routes are far more efficient per km than short local hops; a linear fit calibrated from a single short hop badly overshoots on long ones). That coefficient is then applied to every other datacenter's distance. Your current server's row shows the real measured value directly, not an estimate.
-5. In the background, it queries [`/v1/servers/region`](https://apis.rovalra.com/docs#/Servers/get_servers_by_region) per city (closest first) to build a server-UUID → region cache. This cache is rate-limited and refreshed periodically, independent of the main player-count loop.
-6. Meanwhile, the main loop polls Roblox's own public server list for live `playing` / `maxPlayers` counts.
-7. The datasets are merged by matching server UUID, giving you a list that's sorted by *actual* proximity while still showing *real* player counts and a calibrated ping estimate — something none of these APIs provide on their own.
+Here's the short version of what happens when you open it.
 
-## Installation
+It grabs a list of every Roblox datacenter in the world. That data comes from [RoValra](https://github.com/NotValra/RoValra), who maintain it.
 
-Server Directory is a plugin for [Infinite Yield](https://github.com/EdgeIY/infiniteyield) — it isn't loaded with its own `loadstring`, it's added through IY's own plugin system:
+Then it figures out roughly where you are using your IP address, and measures the real distance from you to each datacenter.
 
-1. [Download `ServerDirectory.iy`](ServerDirectory.iy) from this repo.
-2. Move the file into your executor's `workspace` folder (the same folder IY itself reads plugins from).
-3. In-game, with Infinite Yield running, open **Settings → Plugins → Add Plugin**, type `ServerDirectory.iy`, and click **Add**.
-4. Run `;sd` or `;serverdirectory` to open the window.
+It also checks your actual ping to whatever server you're already on. That real number is used to make its guesses about the other servers much more accurate, instead of just assuming everyone's internet works the same.
 
-## Requirements
+Finally, it pulls live player counts from Roblox and lines them up with the region info. You end up with one list: sorted by what's actually close to you, showing real player counts, with a ping guess that's actually based on something.
 
-- An executor with `request` / `http_request` / `syn.request` support (falls back to `game:HttpGet` if none are available)
-- [Fluent (modded)](https://github.com/LostMorality/Fluent-modded) UI library (loaded automatically)
-- [Infinite Yield](https://github.com/EdgeIY/infiniteyield) as the plugin host
+## Installing it
 
-## Credits
+This is a plugin for Infinite Yield, so there's no loadstring to run. You add it the same way you'd add any other IY plugin:
 
-- [RoValra](https://github.com/NotValra/RoValra) / [apis.rovalra.com](https://apis.rovalra.com) — the public API providing datacenter locations, geolocation, and per-region server data that makes accurate distance-based ranking possible. This project would not exist without their work.
-- [Fluent (modded)](https://github.com/LostMorality/Fluent-modded) — the UI framework used for the window.
+1. [Download `ServerDirectory.iy`](ServerDirectory.iy).
+2. Put it in your executor's `workspace` folder.
+3. In-game, open Infinite Yield, go to Settings, then Plugins, then Add Plugin, and type `ServerDirectory.iy`.
+4. Type `;sd` in chat to open it.
+
+## What you need
+
+An executor that can make HTTP requests, [Fluent (modded)](https://github.com/LostMorality/Fluent-modded) (it loads on its own, you don't need to do anything), and [Infinite Yield](https://github.com/EdgeIY/infiniteyield).
+
+## Thanks
+
+This wouldn't exist without [RoValra](https://github.com/NotValra/RoValra), who maintain the datacenter and server data this whole thing runs on. Thanks also to [Fluent (modded)](https://github.com/LostMorality/Fluent-modded) for the UI.
 
 ## License
 
-Licensed under the [GNU General Public License v3.0](LICENSE).
+GPL-3.0. See [LICENSE](LICENSE).
