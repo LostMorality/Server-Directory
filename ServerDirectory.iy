@@ -589,7 +589,7 @@ local function OnHideFullChanged(value)
 end
 
 local function AddWatermark()
-    local container = Instance.new("CanvasGroup")
+    local container = Instance.new("Frame")
     container.Name = "SD_WatermarkPattern"
     container.BackgroundTransparency = 1
     container.Size = UDim2.fromScale(1, 1)
@@ -675,6 +675,7 @@ local function OpenWindow()
         Acrylic = true,
         Theme = "AMOLED",
     })
+    Window.Root.ClipsDescendants = true
     AddWatermark()
     if not VerifyWatermark() then
         pcall(function()
