@@ -65,6 +65,7 @@ local State = {
     MyLocation = nil,
     PingScale = PING_SCALE,
     MyPing = nil,
+    MyCity = nil,
     CityRank = {},
     CityPing = {},
     ServerRegion = {},
@@ -186,6 +187,7 @@ end
 local function CalibratePing()
     State.PingScale = PING_SCALE
     State.MyPing = nil
+    State.MyCity = nil
     if not State.MyLocation then
         return
     end
@@ -193,6 +195,7 @@ local function CalibratePing()
     if not currentCity then
         return
     end
+    State.MyCity = currentCity
     local realPing = ReadMyPing()
     for _, dc in ipairs(State.Datacenters) do
         if dc.City == currentCity then
@@ -323,27 +326,39 @@ local function FetchAllServers()
     return servers, false
 end
 
+local function TagServer(server)
+    server.IsMyServer = server.Id == game.JobId
+    server.RegionCity = State.ServerRegion[server.Id] or (server.IsMyServer and State.MyCity or nil)
+    server.RegionRank = server.RegionCity and State.CityRank[server.RegionCity]
+    if server.IsMyServer and State.MyPing then
+        server.RegionPing = State.MyPing
+    else
+        server.RegionPing = server.RegionCity and State.CityPing[server.RegionCity]
+    end
+    return server
+end
+
 local function BuildDisplayList()
     local list = {}
+    local haveMine = false
     for _, server in ipairs(State.RawServers) do
         if server.Playing > 0 then
-            local include = true
-            if State.HideFull and server.Playing >= server.MaxPlayers and server.Id ~= game.JobId then
-                include = false
+            local mine = server.Id == game.JobId
+            local full = server.Playing >= server.MaxPlayers
+            if mine then
+                haveMine = true
             end
-            if include then
-                server.RegionCity = State.ServerRegion[server.Id]
-                server.RegionRank = server.RegionCity and State.CityRank[server.RegionCity]
-                if server.Id == game.JobId and State.MyPing then
-                    server.RegionPing = State.MyPing
-                    server.IsMyServer = true
-                else
-                    server.RegionPing = server.RegionCity and State.CityPing[server.RegionCity]
-                    server.IsMyServer = false
-                end
-                table.insert(list, server)
+            if mine or not (State.HideFull and full) then
+                table.insert(list, TagServer(server))
             end
         end
+    end
+    if not haveMine and game.JobId ~= "" then
+        table.insert(list, TagServer({
+            Id = game.JobId,
+            Playing = #Players:GetPlayers(),
+            MaxPlayers = Players.MaxPlayers,
+        }))
     end
     table.sort(list, function(a, b)
         if a.Id == game.JobId or b.Id == game.JobId then
@@ -366,17 +381,16 @@ end
 
 local function BuildRowText(server)
     local title = string.format("%d/%d players", server.Playing, server.MaxPlayers)
-    local regionLine = "Unknown region"
-    if server.RegionCity then
-        if server.RegionPing then
-            if server.IsMyServer then
-                regionLine = string.format("%s (%d ms, current server)", server.RegionCity, server.RegionPing)
-            else
-                regionLine = string.format("%s (~%d ms)", server.RegionCity, server.RegionPing)
-            end
+    local regionLine = server.RegionCity or "Unknown region"
+    if server.RegionPing then
+        if server.IsMyServer then
+            regionLine = string.format("%s (%d ms)", regionLine, server.RegionPing)
         else
-            regionLine = server.RegionCity
+            regionLine = string.format("%s (~%d ms)", regionLine, server.RegionPing)
         end
+    end
+    if server.IsMyServer then
+        regionLine = regionLine .. " - current server"
     end
     local content = string.format(
         "Region: %s\nID: %s",
@@ -575,7 +589,7 @@ local function OnHideFullChanged(value)
 end
 
 local function AddWatermark()
-    local container = Instance.new("Frame")
+    local container = Instance.new("CanvasGroup")
     container.Name = "SD_WatermarkPattern"
     container.BackgroundTransparency = 1
     container.Size = UDim2.fromScale(1, 1)
