@@ -12,8 +12,8 @@ https://github.com/LostMorality/Fluent-modded/releases/download/Fluent/FluentPro
 
 **This plugin makes HTTP requests to servers other than roblox.com:**
 
-- **`apis.rovalra.com`** ([RoValra](https://github.com/NotValra/RoValra)'s public API) — to get the list of Roblox datacenters and figure out which datacenter each server is running in.
-- **`ipapi.co`** — to get your rough physical location from your IP address, so the plugin can tell which servers are actually close to you. This sends your IP address to that service.
+- **`apis.rovalra.com`** ([RoValra](https://github.com/NotValra/RoValra)'s public API): to get the list of Roblox datacenters and figure out which datacenter each server is running in.
+- **`ipapi.co`**: to get your rough physical location from your IP address, so the plugin can tell which servers are actually close to you. This sends your IP address to that service.
 
 ![Server Directory preview](preview.png)
 
@@ -21,11 +21,11 @@ https://github.com/LostMorality/Fluent-modded/releases/download/Fluent/FluentPro
 
 It shows you real player counts, straight from Roblox. It figures out roughly where you are and ranks servers by how close they actually are to you. It also gives you a ping guess for each one, tuned using your real connection instead of a made-up number.
 
+The server you're currently in always sits at the top of the list, with its button reading Rejoin instead of Join, so you can see at a glance which one you're on and grab a link to it.
+
 You can sort by fewest players, most players, or closest server, and hide full servers if you want. Hit Join to jump into a server, or Share to copy a script that joins it later. If something fails, it quietly retries instead of breaking, and it cleans itself up if you close the window.
 
 ## How it works
-
-Here's the short version of what happens when you open it.
 
 It grabs a list of every Roblox datacenter in the world. That data comes from [RoValra](https://github.com/NotValra/RoValra), who maintain it.
 
